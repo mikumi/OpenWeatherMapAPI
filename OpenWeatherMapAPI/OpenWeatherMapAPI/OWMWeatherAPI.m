@@ -23,7 +23,7 @@
 }
 
 
-@property (nonatomic, strong) AFHTTPRequestOperationManager *requestManager;
+@property (nonatomic, strong) AFHTTPSessionManager *sessionManager;
 
 @end
 
@@ -40,10 +40,10 @@
         _weatherQueue.name = @"OMWWeatherQueue";
         
         _currentTemperatureFormat = kOWMTempCelcius;
-        self.requestManager= [[AFHTTPRequestOperationManager alloc] initWithBaseURL:[NSURL URLWithString:@"'"]];
-        [self.requestManager setRequestSerializer:[AFJSONRequestSerializer serializer]];
-        [self.requestManager setResponseSerializer:[AFJSONResponseSerializer serializer]];
-        self.requestManager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects: @"application/json", nil];
+        self.sessionManager = [AFHTTPSessionManager manager];
+        [self.sessionManager setRequestSerializer:[AFJSONRequestSerializer serializer]];
+        [self.sessionManager setResponseSerializer:[AFJSONResponseSerializer serializer]];
+        self.sessionManager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects: @"application/json", nil];
         
     }
     return self;
@@ -155,28 +155,18 @@
     }
     
     NSString *urlString = [NSString stringWithFormat:@"%@%@%@&APPID=%@%@", _baseURL, _apiVersion, method, _apiKey, langString];
-    
-    
-    [self.requestManager GET:urlString
-                  parameters:nil
-                     success:^(AFHTTPRequestOperation *operation, NSDictionary *responseObject) {
-                         
-                         // callback on the caller queue
-                         NSDictionary *res = [self convertResult:responseObject];
-                         [callerQueue addOperationWithBlock:^{
-                             callback(nil, res);
-                         }];
-                     }
-                     failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-                         
-                         // callback on the caller queue
-                         [callerQueue addOperationWithBlock:^{
-                             callback(error, nil);
-                         }];
-                     }];
-    
-    
-    
+    [self.sessionManager GET:urlString parameters:nil progress:nil success:^(NSURLSessionDataTask *task, id responseObject) {
+        // callback on the caller queue
+        NSDictionary *res = [self convertResult:responseObject];
+        [callerQueue addOperationWithBlock:^{
+            callback(nil, res);
+        }];
+    } failure:^(NSURLSessionDataTask *task, NSError *error) {
+        // callback on the caller queue
+        [callerQueue addOperationWithBlock:^{
+            callback(error, nil);
+        }];
+    }];
     
 }
 
